@@ -18,9 +18,14 @@ on:
         description: "Optional. Build number to use. Overrides default of GitHub run number."
         required: false
         type: number
+      xcode-version:
+        description: "Optional. Xcode version to use. Overrides default."
+        required: false
+        type: string
 
 env:
   build-variant: ${{ inputs.build-variant || 'Production' }}
+  XCODE_VERSION: ${{ inputs.xcode-version || '15.4' }}
 
 jobs:
   build:
@@ -33,6 +38,11 @@ jobs:
     steps:
       - name: Check out repo
         uses: actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332 # v4.1.7
+
+      - name: Set Xcode version
+        uses: maxim-lobanov/setup-xcode@60606e260d2fc5762a71e64e74b2174e8ea3c8bd # v1.6.0
+        with:
+          xcode-version: ${{ env.XCODE_VERSION }}
 
       - name: Cache Mint packages
         id: mint-cache
@@ -151,7 +161,7 @@ jobs:
           ./Scripts/build.sh
 
       - name: Upload IPA
-        uses: actions/upload-artifact@834a144ee995460fba8ed112a2fc961b36a5ec5a # v4.3.6
+        uses: actions/upload-artifact@50769540e7f4bd5e21e526ee35c689e35e0d6874 # v4.4.0
         with:
           name: Authenticator iOS
           path: build/Authenticator/Authenticator.ipa
