@@ -21,6 +21,9 @@ struct ManualEntryView: View {
                     store.send(.dismissPressed)
                 }
             }
+            .task {
+                await store.perform(.appeared)
+            }
     }
 
     /// A button to trigger an `.addPressed(:)` action.
@@ -30,7 +33,8 @@ struct ManualEntryView: View {
             store.send(
                 ManualEntryAction.addPressed(
                     code: store.state.authenticatorKey,
-                    name: store.state.name
+                    name: store.state.name,
+                    sendToBitwarden: false
                 )
             )
         }
@@ -61,24 +65,25 @@ struct ManualEntryView: View {
                 )
             )
             .accessibilityIdentifier("ManualEntryKeyField")
-            addButton
-            footer
+
+            if store.state.isPasswordManagerSyncActive {
+                if store.state.defaultSaveOption == .saveHere {
+                    addPrimaryButton(sendToBitwarden: false)
+                    addTertiaryButton(sendToBitwarden: true)
+                } else {
+                    addPrimaryButton(sendToBitwarden: true)
+                    addTertiaryButton(sendToBitwarden: false)
+                }
+            } else {
+                addButton
+            }
+            footerButtonContainer
         }
         .background(
             Asset.Colors.backgroundSecondary.swiftUIColor
                 .ignoresSafeArea()
         )
         .scrollView()
-    }
-
-    /// Explanation text for the view and a button to launch the scan code view.
-    ///
-    private var footer: some View {
-        Group {
-            Text(Localizations.onceTheKeyIsSuccessfullyEnteredAddCode)
-                .styleGuide(.callout)
-            footerButtonContainer
-        }
     }
 
     /// A view to wrap the button for triggering `.scanCodePressed`.
@@ -99,6 +104,54 @@ struct ManualEntryView: View {
             })
         }
     }
+
+    /// Create a button to trigger an `.addPressed(:)` action.
+    ///
+    /// - Parameter sendToBitwarden: whether this button sends the code to Bitwarden (`true`) or stores
+    ///     it locally (`false`). This is also used to determine the title and accessibility identifier.
+    /// - Returns: the configured `Button`.
+    ///
+    private func addButton(sendToBitwarden: Bool) -> some View {
+        let accessibilityIdentifier = sendToBitwarden ?
+            "ManualEntryAddCodeToBitwardenButton" :
+            "ManualEntryAddCodeButton"
+        let title = sendToBitwarden ?
+            Localizations.saveToBitwarden :
+            Localizations.saveHere
+
+        return Button(title) {
+            store.send(
+                ManualEntryAction.addPressed(
+                    code: store.state.authenticatorKey,
+                    name: store.state.name,
+                    sendToBitwarden: sendToBitwarden
+                )
+            )
+        }
+        .accessibilityIdentifier(accessibilityIdentifier)
+    }
+
+    /// A primary style button to trigger an `.addPressed(:)` action.
+    ///
+    /// - Parameter sendToBitwarden: whether this button sends the code to Bitwarden (`true`) or stores
+    ///     it locally (`false`). This is also used to determine the title and accessibility identifier.
+    /// - Returns: the `Button`, styled and configured.
+    ///
+    private func addPrimaryButton(sendToBitwarden: Bool) -> some View {
+        addButton(sendToBitwarden: sendToBitwarden)
+            .buttonStyle(.primary())
+    }
+
+    /// A tertiary style button to trigger an `.addPressed(:)` action.
+    ///
+    /// - Parameter sendToBitwarden: whether this button sends the code to Bitwarden (`true`) or stores
+    ///     it locally (`false`). This is also used to determine the title and accessibility identifier.
+    /// - Returns: the `Button`, styled and configured.
+    ///
+    private func addTertiaryButton(sendToBitwarden: Bool) -> some View {
+        addButton(sendToBitwarden: sendToBitwarden)
+            .buttonStyle(.tertiary())
+    }
 }
 
 #if DEBUG
@@ -106,7 +159,11 @@ struct ManualEntryView_Previews: PreviewProvider {
     struct PreviewState: ManualEntryState {
         var authenticatorKey: String = ""
 
+        var defaultSaveOption: DefaultSaveOption = .none
+
         var deviceSupportsCamera: Bool = true
+
+        var isPasswordManagerSyncActive: Bool = false
 
         var manualEntryState: ManualEntryState {
             self
@@ -118,6 +175,9 @@ struct ManualEntryView_Previews: PreviewProvider {
     static var previews: some View {
         empty
         textAdded
+        syncActiveNoDefault
+        syncActiveBitwardenDefault
+        syncActiveLocalDefault
     }
 
     @ViewBuilder static var empty: some View {
@@ -147,6 +207,54 @@ struct ManualEntryView_Previews: PreviewProvider {
             )
         }
         .previewDisplayName("Text Added")
+    }
+
+    @ViewBuilder static var syncActiveNoDefault: some View {
+        NavigationView {
+            ManualEntryView(
+                store: Store(
+                    processor: StateProcessor(
+                        state: PreviewState(
+                            defaultSaveOption: .none,
+                            isPasswordManagerSyncActive: true
+                        ).manualEntryState
+                    )
+                )
+            )
+        }
+        .previewDisplayName("Sync Active - No default")
+    }
+
+    @ViewBuilder static var syncActiveBitwardenDefault: some View {
+        NavigationView {
+            ManualEntryView(
+                store: Store(
+                    processor: StateProcessor(
+                        state: PreviewState(
+                            defaultSaveOption: .saveToBitwarden,
+                            isPasswordManagerSyncActive: true
+                        ).manualEntryState
+                    )
+                )
+            )
+        }
+        .previewDisplayName("Sync Active - Bitwarden default")
+    }
+
+    @ViewBuilder static var syncActiveLocalDefault: some View {
+        NavigationView {
+            ManualEntryView(
+                store: Store(
+                    processor: StateProcessor(
+                        state: PreviewState(
+                            defaultSaveOption: .saveHere,
+                            isPasswordManagerSyncActive: true
+                        ).manualEntryState
+                    )
+                )
+            )
+        }
+        .previewDisplayName("Sync Active - Local default")
     }
 }
 #endif
