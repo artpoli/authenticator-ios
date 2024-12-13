@@ -17,7 +17,7 @@ protocol StateService: AnyObject {
     ///
     /// - Returns: The active user account id.
     ///
-    func getActiveAccountId() async throws -> String
+    func getActiveAccountId() async -> String
 
     /// Get the app theme.
     ///
@@ -69,6 +69,12 @@ protocol StateService: AnyObject {
     /// - Returns: Whether to show the website icons.
     ///
     func getShowWebIcons() async -> Bool
+
+    /// Gets the session timeout value for the logged in user.
+    ///
+    /// - Returns: The session timeout value.
+    ///
+    func getVaultTimeout() async -> SessionTimeoutValue
 
     /// Sets the app theme.
     ///
@@ -209,7 +215,7 @@ actor DefaultStateService: StateService {
 
     // MARK: Methods
 
-    func getActiveAccountId() async throws -> String {
+    func getActiveAccountId() async -> String {
         appSettingsStore.localUserId
     }
 
@@ -238,6 +244,13 @@ actor DefaultStateService: StateService {
 
     func getShowWebIcons() async -> Bool {
         !appSettingsStore.disableWebIcons
+    }
+
+    func getVaultTimeout() async -> SessionTimeoutValue {
+        let accountId = await getActiveAccountId()
+        guard let rawValue = appSettingsStore.vaultTimeout(userId: accountId) else { return .never }
+
+        return SessionTimeoutValue(rawValue: rawValue)
     }
 
     func setAppTheme(_ appTheme: AppTheme) async {

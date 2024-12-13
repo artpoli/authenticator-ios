@@ -15,6 +15,9 @@ public struct ItemListItem: Equatable, Identifiable {
         ///   - model: The TOTP model
         case sharedTotp(model: ItemListSharedTotpItem)
 
+        /// An item for displaying an error that occurred in syncing from the Password Manager app.
+        case syncError
+
         /// A TOTP code item
         ///
         /// - Parameters:
@@ -40,6 +43,19 @@ extension ItemListItem {
     /// should be replaced by a legitimate TOTP code by the Processor before it is shown to a user. It is here
     /// so that `code` is non-optional and always has a value.
     private static let defaultTotpCode = "123456"
+
+    /// The associated `TOTPCodeModel` if this item is an `itemType` with an associated code (i.e. `.totp`
+    /// and `.sharedTotp`) or `nil` if there is no associated code (i.e. `.syncError`)
+    var totpCodeModel: TOTPCodeModel? {
+        switch itemType {
+        case let .sharedTotp(model):
+            return model.totpCode
+        case .syncError:
+            return nil
+        case let .totp(model):
+            return model.totpCode
+        }
+    }
 
     /// Initialize an `ItemListItem` from an `AuthenticatorItemView`
     ///
@@ -99,6 +115,19 @@ extension ItemListItem {
                   itemType: .sharedTotp(model: totpModel))
     }
 
+    /// Initialize a `.syncError` `ItemListItem`.
+    ///
+    /// - Returns: An`ItemListItem` of the `.syncError` `ItemType`.
+    ///
+    public static func syncError() -> ItemListItem {
+        self.init(
+            id: "syncError",
+            name: Localizations.unableToSyncCodesFromTheBitwardenApp,
+            accountName: nil,
+            itemType: .syncError
+        )
+    }
+
     /// Make a new `ItemListItem` that is a copy of the existing one, but with an updated `TOTPCodeModel`.
     ///
     /// - Parameter newTotpModel: the new `TOTPCodeModel` to insert in this ItemListItem
@@ -116,6 +145,8 @@ extension ItemListItem {
                 accountName: accountName,
                 itemType: .sharedTotp(model: updatedModel)
             )
+        case .syncError:
+            return self
         case let .totp(oldModel):
             var updatedModel = oldModel
             updatedModel.totpCode = newTotpModel
@@ -129,6 +160,32 @@ extension ItemListItem {
     }
 }
 
+extension ItemListItem {
+    /// A comparator to use for sorting that will sort based on the localized compare of the two item's names.
+    /// If the name is blank (e.g. an otpauth style code with no issuer) it will fall back to account name.
+    ///
+    /// If the names are equal, we default to comparing the two ids. This is to prevent items with the same
+    /// name/issuer from "jumping" around when the list is sorted.
+    ///
+    /// - Parameters:
+    ///   - lhs: The left hand item of the comparison
+    ///   - rhs: The right hand item of the comparison
+    /// - Returns: `true` if  `lhs < rhs` according to the compare. `false` otherwise.
+    ///
+    static func localizedNameComparator(lhs: ItemListItem, rhs: ItemListItem) -> Bool {
+        let leftName = lhs.name.nilIfEmpty ?? lhs.accountName ?? ""
+        let rightName = rhs.name.nilIfEmpty ?? rhs.accountName ?? ""
+
+        if leftName == rightName {
+            return lhs.id < rhs.id
+        } else {
+            return leftName.localizedStandardCompare(rightName) == .orderedAscending
+        }
+    }
+}
+
+// MARK: - ItemListTotpItem
+
 public struct ItemListTotpItem: Equatable {
     /// The `AuthenticatorItemView` used to populate the view
     let itemView: AuthenticatorItemView
@@ -136,6 +193,8 @@ public struct ItemListTotpItem: Equatable {
     /// The current TOTP code for the item
     var totpCode: TOTPCodeModel
 }
+
+// MARK: - ItemListSharedTotpItem
 
 public struct ItemListSharedTotpItem: Equatable {
     /// The `AuthenticatorBridgeItemDataView` used to populate the view

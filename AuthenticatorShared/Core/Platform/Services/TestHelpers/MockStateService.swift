@@ -24,10 +24,11 @@ class MockStateService: StateService {
     var timeProvider = MockTimeProvider(.currentTime)
     var showWebIcons = true
     var showWebIconsSubject = CurrentValueSubject<Bool, Never>(true)
+    var vaultTimeout = SessionTimeoutValue.never
 
     lazy var appThemeSubject = CurrentValueSubject<AppTheme, Never>(self.appTheme ?? .default)
 
-    func getActiveAccountId() async throws -> String {
+    func getActiveAccountId() async -> String {
         "localtest"
     }
 
@@ -52,6 +53,10 @@ class MockStateService: StateService {
 
     func getShowWebIcons() async -> Bool {
         showWebIcons
+    }
+
+    func getVaultTimeout() async -> SessionTimeoutValue {
+        vaultTimeout
     }
 
     func setAppTheme(_ appTheme: AppTheme) async {

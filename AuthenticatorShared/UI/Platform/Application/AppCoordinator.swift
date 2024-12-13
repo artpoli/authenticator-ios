@@ -63,8 +63,10 @@ class AppCoordinator: Coordinator, HasRootNavigator {
     func handleEvent(_ event: AppEvent, context: AnyObject?) async {
         switch event {
         case .didStart:
+            let hasTimeout = await services.stateService.getVaultTimeout() != .never
             let isEnabled = await (try? services.biometricsRepository.getBiometricUnlockStatus().isEnabled) ?? false
-            if isEnabled {
+
+            if isEnabled, hasTimeout {
                 showAuth(.vaultUnlock)
             } else {
                 showTab(route: .itemList(.list))
@@ -72,6 +74,8 @@ class AppCoordinator: Coordinator, HasRootNavigator {
                     showTutorial()
                 }
             }
+        case .vaultTimeout:
+            showAuth(.vaultUnlock)
         }
     }
 
@@ -134,9 +138,9 @@ class AppCoordinator: Coordinator, HasRootNavigator {
             coordinator.start()
             coordinator.navigate(to: route)
             childCoordinator = coordinator
-            if rootNavigator.isPresenting {
-                rootNavigator.rootViewController?.dismiss(animated: true)
-            }
+        }
+        if let rootNavigator, rootNavigator.isPresenting {
+            rootNavigator.rootViewController?.dismiss(animated: true)
         }
     }
 
